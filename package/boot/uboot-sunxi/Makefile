@@ -258,6 +258,12 @@ define U-Boot/pine64_plus
   UENV:=a64
 endef
 
+define U-Boot/pine64_pinecube
+  BUILD_SUBTARGET:=cortexa7
+  NAME:=Pine64 PineCube
+  BUILD_DEVICES:=pine64_pinecube
+endef
+
 define U-Boot/bananapi_m2_plus_h3
   BUILD_SUBTARGET:=cortexa7
   NAME:=Bananapi M2 Plus H3
@@ -335,6 +341,7 @@ UBOOT_TARGETS := \
 	orangepi_pc2 \
 	pangolin \
 	pine64_plus \
+	pine64_pinecube \
 	sopine_baseboard \
 	orangepi_zero_plus \
 	libretech_all_h3_cc_h5

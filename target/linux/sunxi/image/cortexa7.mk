@@ -213,3 +213,11 @@ define Device/xunlong_orangepi-2
   SOC := sun8i-h3
 endef
 TARGET_DEVICES += xunlong_orangepi-2
+
+define Device/pine64_pinecube
+  DEVICE_VENDOR := Pine64
+  DEVICE_MODEL := PineCube
+  DEVICE_PACKAGES:=kmod-rtc-sunxi
+  SOC := sun8i-s3
+endef
+TARGET_DEVICES += pine64_pinecube
