@@ -74,10 +74,10 @@ index be872eefa61e..17f543833807 100644
 -	.has_hmic	= true,
 +	.has_headphone = true,
 +	.has_hmic = true,
-+	.has lineout = true,
-+	.has linein = true,
-+	.has mbias = true,
-+	.has mic2 = true,
++	.has_lineout = true,
++	.has_linein = true,
++	.has_mbias = true,
++	.has_mic2 = true,
  };
  
  static int sun8i_codec_analog_cmpnt_probe(struct snd_soc_component *cmpnt)
