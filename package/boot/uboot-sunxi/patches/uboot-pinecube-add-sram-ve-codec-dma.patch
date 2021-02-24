@@ -1,0 +1,196 @@
+diff --git a/arch/arm/dts/sun8i-s3-pinecube.dts b/arch/arm/dts/sun8i-s3-pinecube.dts
+index 9bab6b7f40..e406a60186 100644
+--- a/arch/arm/dts/sun8i-s3-pinecube.dts
++++ b/arch/arm/dts/sun8i-s3-pinecube.dts
+@@ -10,7 +10,7 @@
+ 
+ / {
+ 	model = "PineCube IP Camera";
+-	compatible = "pine64,pinecube", "allwinner,sun8i-s3";
++	compatible = "pine64,pinecube", "sochip,s3", "allwinner,sun8i-v3";
+ 
+ 	aliases {
+ 		serial0 = &uart2;
+@@ -58,15 +58,22 @@
+ 	};
+ };
+ 
++&codec {
++	allwinner,audio-routing =
++		"Headphone", "HP",
++		"Headphone", "HPCOM",
++		"Speaker", "HP",
++		"MIC1", "Mic",
++		"Mic",  "MBIAS";
++	status = "okay";
++};
++
+ &csi1 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&csi1_8bit_pins>;
+ 	status = "okay";
+ 
+ 	port {
+-		#address-cells = <1>;
+-		#size-cells = <0>;
+-
+ 		csi1_ep: endpoint {
+ 			remote-endpoint = <&ov5640_ep>;
+ 			bus-width = <8>;
+@@ -88,13 +95,9 @@
+ 	status = "okay";
+ 
+ 	axp209: pmic@34 {
+-		compatible = "x-powers,axp203",
+-			     "x-powers,axp209";
+ 		reg = <0x34>;
+-		interrupt-parent = <&gic>;
+-		interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
+-		interrupt-controller;
+-		#interrupt-cells = <1>;
++		interrupt-parent = <&nmi_intc>;
++		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
+ 	};
+ };
+ 
+diff --git a/arch/arm/dts/sun8i-v3.dtsi b/arch/arm/dts/sun8i-v3.dtsi
+index ca4672ed2e..fd0480bf89 100644
+--- a/arch/arm/dts/sun8i-v3.dtsi
++++ b/arch/arm/dts/sun8i-v3.dtsi
+@@ -24,4 +24,10 @@
+ 
+ &pio {
+ 	compatible = "allwinner,sun8i-v3-pinctrl";
++
++	uart1_pg_pins: uart1-pg-pins {
++		pins = "PG6", "PG7";
++		function = "uart1";
++	};
+ };
++
+diff --git a/arch/arm/dts/sun8i-v3s.dtsi b/arch/arm/dts/sun8i-v3s.dtsi
+index 0c73416769..3f892604a1 100644
+--- a/arch/arm/dts/sun8i-v3s.dtsi
++++ b/arch/arm/dts/sun8i-v3s.dtsi
+@@ -161,6 +161,29 @@
+ 			#address-cells = <1>;
+ 			#size-cells = <1>;
+ 			ranges;
++
++			sram_c: sram@4000 {
++				compatible = "mmio-sram";
++				reg = <0x4000 0xb000>;
++				#address-cells = <1>;
++				#size-cells = <1>;
++				ranges = <0 0x4000 0xb000>;
++
++				ve_sram: sram-section@0 {
++					compatible = "allwinner,sun8i-v3s-sram-c1",
++						     "allwinner,sun4i-a10-sram-c1";
++					reg = <0x0 0xb000>;
++				};
++			};
++		};
++
++		nmi_intc: interrupt-controller@1c000d0 {
++			compatible = "allwinner,sun8i-v3s-nmi",
++				     "allwinner,sun9i-a80-nmi";
++			interrupt-controller;
++			#interrupt-cells = <2>;
++			reg = <0x01c000d0 0x0c>;
++			interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
+ 		};
+ 
+ 		tcon0: lcd-controller@1c0c000 {
+@@ -197,6 +220,25 @@
+ 			};
+ 		};
+ 
++		dma: dma-controller@01c02000 {
++			compatible = "allwinner,sun8i-v3s-dma";
++			reg = <0x01c02000 0x1000>;
++			interrupts = <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_DMA>;
++			resets = <&ccu RST_BUS_DMA>;
++			#dma-cells = <1>;
++		};
++
++		video-codec@1c0e000 {
++			compatible = "allwinner,sun8i-v3s-video-engine";
++			reg = <0x01c0e000 0x1000>;
++			clocks = <&ccu CLK_BUS_VE>, <&ccu CLK_VE>,
++				 <&ccu CLK_DRAM_VE>;
++			clock-names = "ahb", "mod", "ram";
++			resets = <&ccu RST_BUS_VE>;
++			interrupts = <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>;
++			allwinner,sram = <&ve_sram 1>;
++		};
+ 
+ 		mmc0: mmc@1c0f000 {
+ 			compatible = "allwinner,sun7i-a20-mmc";
+@@ -328,6 +370,12 @@
+ 			interrupt-controller;
+ 			#interrupt-cells = <3>;
+ 
++			/omit-if-no-ref/
++			csi0_mclk_pin: csi0-mclk-pin {
++				pins = "PE20";
++				function = "csi_mipi";
++			};
++
+ 			/omit-if-no-ref/
+ 			csi1_8bit_pins: csi1-8bit-pins {
+ 				pins = "PE0", "PE2", "PE3", "PE8", "PE9",
+@@ -347,6 +395,12 @@
+ 				function = "i2c0";
+ 			};
+ 
++			/omit-if-no-ref/
++			i2c1_pb_pins: i2c1-pb-pins {
++				pins = "PB8", "PB9";
++				function = "i2c1";
++			};
++
+ 			/omit-if-no-ref/
+ 			i2c1_pe_pins: i2c1-pe-pins {
+ 				pins = "PE21", "PE22";
+@@ -408,6 +462,25 @@
+ 			status = "disabled";
+ 		};
+ 
++		codec: codec@01c22c00 {
++			#sound-dai-cells = <0>;
++			compatible = "allwinner,sun8i-v3s-codec";
++			reg = <0x01c22c00 0x400>;
++			interrupts = <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_CODEC>, <&ccu CLK_AC_DIG>;
++			clock-names = "apb", "codec";
++			resets = <&ccu RST_BUS_CODEC>;
++			dmas = <&dma 15>, <&dma 15>;
++			dma-names = "rx", "tx";
++			allwinner,codec-analog-controls = <&codec_analog>;
++			status = "disabled";
++		};
++
++		codec_analog: codec-analog@01c23000 {
++			compatible = "allwinner,sun8i-v3s-codec-analog";
++			reg = <0x01c23000 0x4>;
++		};
++
+ 		uart0: serial@1c28000 {
+ 			compatible = "snps,dw-apb-uart";
+ 			reg = <0x01c28000 0x400>;
+@@ -539,7 +612,7 @@
+ 		gic: interrupt-controller@1c81000 {
+ 			compatible = "arm,gic-400";
+ 			reg = <0x01c81000 0x1000>,
+-			      <0x01c82000 0x1000>,
++			      <0x01c82000 0x2000>,
+ 			      <0x01c84000 0x2000>,
+ 			      <0x01c86000 0x2000>;
+ 			interrupt-controller;
+@@ -548,3 +621,4 @@
+ 		};
+ 	};
+ };
++
