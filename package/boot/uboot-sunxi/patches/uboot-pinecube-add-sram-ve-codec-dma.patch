@@ -19,7 +19,7 @@ index 9bab6b7f40..e406a60186 100644
 +	allwinner,audio-routing =
 +		"Headphone", "HP",
 +		"Headphone", "HPCOM",
-+		"Speaker", "HP",
++		"Speaker", "LINEOUT",
 +		"MIC1", "Mic",
 +		"Mic",  "MBIAS";
 +	status = "okay";
