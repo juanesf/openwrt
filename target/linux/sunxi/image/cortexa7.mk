@@ -81,7 +81,8 @@ define Device/sinovoip_bananapi-m2-ultra
   DEVICE_VENDOR := Sinovoip
   DEVICE_MODEL := Banana Pi M2 Ultra
   DEVICE_PACKAGES:=kmod-rtc-sunxi kmod-ata-sunxi kmod-brcmfmac \
-	brcmfmac-firmware-43430a0-sdio wpad-basic-wolfssl
+	brcmfmac-firmware-43430a0-sdio wpad-basic-wolfssl kmod-usb-hid \
+	sound-soc-sunxi
   SUPPORTED_DEVICES:=lemaker,bananapi-m2-ultra
   SOC := sun8i-r40
 endef
@@ -221,7 +222,7 @@ TARGET_DEVICES += xunlong_orangepi-2
 define Device/pinecube
   DEVICE_VENDOR := Pine64
   DEVICE_MODEL := PineCube
-  DEVICE_PACKAGES:=kmod-rtc-sunxi
+  DEVICE_PACKAGES:=kmod-rtc-sunxi sound-soc-sunxi kmod-usb-hid
   SOC := sun8i-s3
 endef
 TARGET_DEVICES += pinecube
