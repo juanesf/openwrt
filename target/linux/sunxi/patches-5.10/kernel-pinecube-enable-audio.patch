@@ -55,7 +55,7 @@ index eb4cb63fef13..6342e45ae7ef 100644
 +		};
 +
 +		codec_analog: codec-analog@01c23000 {
-+			compatible = "allwinner,sun8i-h3-codec-analog";
++			compatible = "allwinner,sun8i-a23-codec-analog";
 +			reg = <0x01c23000 0x4>;
 +		};
 +
