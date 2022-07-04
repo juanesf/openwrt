@@ -137,17 +137,17 @@ endef
 
 $(eval $(call KernelPackage,sun4i-i2s))
 
-define KernelPackage/sound-soc-sunxi-spdif
-  TITLE:=Allwinner A10 SPDIF Support
+define KernelPackage/sun4i-spdif
+  TITLE:=AllWinner sun4i family built-in SoC spdif support
   KCONFIG:=CONFIG_SND_SUN4I_SPDIF
   FILES:=$(LINUX_DIR)/sound/soc/sunxi/sun4i-spdif.ko
   AUTOLOAD:=$(call AutoLoad,65,sun4i-spdif)
-  DEPENDS:=@TARGET_sunxi +kmod-sound-soc-spdif
+  DEPENDS:=@TARGET_sunxi +kmod-sound-soc-core +kmod-sun8i-regmap
   $(call AddDepends/sound)
 endef
 
-define KernelPackage/sound-soc-sunxi-spdif/description
-  Kernel support for Allwinner A10 SPDIF Support
+define KernelPackage/sun4i-spdif/description
+  Kernel support for AllWinner sun4i family built-in SoC SPDIF
 endef
 
-$(eval $(call KernelPackage,sound-soc-sunxi-spdif))
+$(eval $(call KernelPackage,sun4i-spdif))
