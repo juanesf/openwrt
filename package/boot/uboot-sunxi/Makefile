@@ -5,15 +5,22 @@
 # This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
 #
-
+///
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
-PKG_VERSION:=2020.04
+PKG_VERSION:=u-boot-mod-2021.10
+PKG_RELEASE:=$(AUTORELEASE)
 
-PKG_HASH:=fe732aaf037d9cc3c0909bad8362af366ae964bbdac6913a34081ff4ad565372
+PKG_SOURCE_PROTO:=git
+PKG_SOURCE_URL:=https://github.com/juanesf/u-boot.git
+PKG_MIRROR_HASH:=6f0bf157793d3fc6494123d006eacfb96b4bbda4f495ea388fcbfc7d395b71e6
 
-PKG_MAINTAINER:=Zoltan HERPAI <wigyori@uid0.hu>
+#PKG_VERSION:=2020.04
+
+#PKG_HASH:=fe732aaf037d9cc3c0909bad8362af366ae964bbdac6913a34081ff4ad565372
+
+#PKG_MAINTAINER:=Zoltan HERPAI <wigyori@uid0.hu>
 
 include $(INCLUDE_DIR)/u-boot.mk
 include $(INCLUDE_DIR)/package.mk
