@@ -13,11 +13,12 @@
 #include <linux/kernel.h>
 #include <linux/mfd/syscon.h>
 #include <linux/mm.h>
-#include <linux/of_gpio.h>
+#include <linux/module.h>
 #include <linux/of_irq.h>
 #include <linux/of_pci.h>
 #include <linux/of_platform.h>
 #include <linux/pci.h>
+#include <linux/platform_device.h>
 #include <linux/pm_domain.h>
 #include <linux/pm_runtime.h>
 #include <linux/reset.h>
@@ -395,6 +396,7 @@ static const struct of_device_id bcm6328_pcie_of_match[] = {
 	{ .compatible = "brcm,bcm6328-pcie", },
 	{ /* sentinel */ }
 };
+MODULE_DEVICE_TABLE(of, bcm6328_pcie_of_match);
 
 static struct platform_driver bcm6328_pcie_driver = {
 	.probe = bcm6328_pcie_probe,
@@ -403,12 +405,9 @@ static struct platform_driver bcm6328_pcie_driver = {
 		.of_match_table = bcm6328_pcie_of_match,
 	},
 };
+module_platform_driver(bcm6328_pcie_driver);
 
-int __init bcm6328_pcie_init(void)
-{
-	int ret = platform_driver_register(&bcm6328_pcie_driver);
-	if (ret)
-		pr_err("pci-bcm6328: Error registering platform driver!\n");
-	return ret;
-}
-late_initcall_sync(bcm6328_pcie_init);
+MODULE_AUTHOR("Álvaro Fernández Rojas <noltari@gmail.com>");
+MODULE_DESCRIPTION("BCM6328 PCIe Controller Driver");
+MODULE_LICENSE("GPL v2");
+MODULE_ALIAS("platform:bcm6328-pcie");

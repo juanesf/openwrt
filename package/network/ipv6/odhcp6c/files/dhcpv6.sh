@@ -2,6 +2,7 @@
 
 . /lib/functions.sh
 . ../netifd-proto.sh
+. /lib/config/uci.sh
 init_proto "$@"
 
 proto_dhcpv6_init_config() {
@@ -29,16 +30,18 @@ proto_dhcpv6_init_config() {
 	proto_config_add_string iface_464xlat
 	proto_config_add_string zone_464xlat
 	proto_config_add_string zone
-	proto_config_add_string 'ifaceid:ip6addr'
+	proto_config_add_string 'ip6ifaceid:ip6addr'
 	proto_config_add_string "userclass"
 	proto_config_add_string "vendorclass"
 	proto_config_add_array "sendopts:list(string)"
 	proto_config_add_boolean delegate
+	proto_config_add_int skpriority
 	proto_config_add_int "soltimeout"
 	proto_config_add_boolean fakeroutes
 	proto_config_add_boolean sourcefilter
 	proto_config_add_boolean keep_ra_dnslifetime
 	proto_config_add_int "ra_holdoff"
+	proto_config_add_boolean verbose
 }
 
 proto_dhcpv6_add_prefix() {
@@ -53,8 +56,8 @@ proto_dhcpv6_setup() {
 	local config="$1"
 	local iface="$2"
 
-	local reqaddress reqprefix clientid reqopts defaultreqopts noslaaconly forceprefix extendprefix norelease noserverunicast noclientfqdn noacceptreconfig ip6prefix ip6prefixes iface_dslite iface_map iface_464xlat ifaceid userclass vendorclass sendopts delegate zone_dslite zone_map zone_464xlat zone encaplimit_dslite encaplimit_map soltimeout fakeroutes sourcefilter keep_ra_dnslifetime ra_holdoff
-	json_get_vars reqaddress reqprefix clientid reqopts defaultreqopts noslaaconly forceprefix extendprefix norelease noserverunicast noclientfqdn noacceptreconfig iface_dslite iface_map iface_464xlat ifaceid userclass vendorclass delegate zone_dslite zone_map zone_464xlat zone encaplimit_dslite encaplimit_map soltimeout fakeroutes sourcefilter keep_ra_dnslifetime ra_holdoff
+	local reqaddress reqprefix clientid reqopts defaultreqopts noslaaconly forceprefix extendprefix norelease noserverunicast noclientfqdn noacceptreconfig ip6prefix ip6prefixes iface_dslite iface_map iface_464xlat ip6ifaceid userclass vendorclass sendopts delegate zone_dslite zone_map zone_464xlat zone encaplimit_dslite encaplimit_map skpriority soltimeout fakeroutes sourcefilter keep_ra_dnslifetime ra_holdoff verbose
+	json_get_vars reqaddress reqprefix clientid reqopts defaultreqopts noslaaconly forceprefix extendprefix norelease noserverunicast noclientfqdn noacceptreconfig iface_dslite iface_map iface_464xlat ip6ifaceid userclass vendorclass delegate zone_dslite zone_map zone_464xlat zone encaplimit_dslite encaplimit_map skpriority soltimeout fakeroutes sourcefilter keep_ra_dnslifetime ra_holdoff verbose
 	json_for_each_item proto_dhcpv6_add_prefix ip6prefix ip6prefixes
 
 	# Configure
@@ -64,6 +67,7 @@ proto_dhcpv6_setup() {
 	[ -z "$reqprefix" -o "$reqprefix" = "auto" ] && reqprefix=0
 	[ "$reqprefix" != "no" ] && append opts "-P$reqprefix"
 
+	[ -z "$clientid" ] && clientid="$(uci_get network @globals[0] dhcp_default_duid)"
 	[ -n "$clientid" ] && append opts "-c$clientid"
 
 	[ "$defaultreqopts" = "0" ] && append opts "-R"
@@ -80,7 +84,8 @@ proto_dhcpv6_setup() {
 
 	[ "$noacceptreconfig" = "1" ] && append opts "-a"
 
-	[ -n "$ifaceid" ] && append opts "-i$ifaceid"
+	[ -z "$ip6ifaceid" ] && json_get_var ip6ifaceid ifaceid
+	[ -n "$ip6ifaceid" ] && append opts "-i$ip6ifaceid"
 
 	[ -n "$vendorclass" ] && append opts "-V$vendorclass"
 
@@ -88,14 +93,28 @@ proto_dhcpv6_setup() {
 
 	[ "$keep_ra_dnslifetime" = "1" ] && append opts "-L"
 
+	[ -n "$skpriority" ] && append opts "-K$skpriority"
+
 	[ -n "$ra_holdoff" ] && append opts "-m$ra_holdoff"
+
+	[ "$verbose" = "1" ] && append opts "-v"
+
+	json_for_each_item proto_dhcpv6_add_sendopts sendopts opts
+
+	# Dynamically add OROs to support loaded packages.
+	json_load "$(ubus call network get_proto_handlers)"
+	json_get_var handler_map map
+	json_get_var handler_dslite dslite
+
+	[ -n "$handler_dslite" ] && append reqopts "64"
+	[ -n "$handler_map" ] && append reqopts "94"
+	[ -n "$handler_map" ] && append reqopts "95"
+	[ -n "$handler_map" ] && append reqopts "96"
 
 	local opt
 	for opt in $reqopts; do
 		append opts "-r$opt"
 	done
-
-	json_for_each_item proto_dhcpv6_add_sendopts sendopts opts
 
 	append opts "-t${soltimeout:-120}"
 
@@ -105,6 +124,7 @@ proto_dhcpv6_setup() {
 	[ -n "$iface_464xlat" ] && proto_export "IFACE_464XLAT=$iface_464xlat"
 	[ "$delegate" = "0" ] && proto_export "IFACE_DSLITE_DELEGATE=0"
 	[ "$delegate" = "0" ] && proto_export "IFACE_MAP_DELEGATE=0"
+	[ "$delegate" = "0" ] && proto_export "IFACE_464XLAT_DELEGATE=0"
 	[ -n "$zone_dslite" ] && proto_export "ZONE_DSLITE=$zone_dslite"
 	[ -n "$zone_map" ] && proto_export "ZONE_MAP=$zone_map"
 	[ -n "$zone_464xlat" ] && proto_export "ZONE_464XLAT=$zone_464xlat"

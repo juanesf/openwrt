@@ -1,5 +1,44 @@
 include ./common-tp-link.mk
 
+define Device/tplink_rex5x-v1
+  $(Device/tplink-safeloader)
+  SOC := qca9558
+  IMAGE_SIZE := 6016k
+  DEVICE_PACKAGES := kmod-ath10k-ct-smallbuffers ath10k-firmware-qca988x-ct
+  DEFAULT := n
+endef
+
+define Device/tplink_re355-v1
+  $(Device/tplink_rex5x-v1)
+  DEVICE_MODEL := RE355
+  DEVICE_VARIANT := v1
+  TPLINK_BOARD_ID := RE355
+  SUPPORTED_DEVICES += re355
+endef
+TARGET_DEVICES += tplink_re355-v1
+
+define Device/tplink_re450-v1
+  $(Device/tplink_rex5x-v1)
+  DEVICE_MODEL := RE450
+  DEVICE_VARIANT := v1
+  TPLINK_BOARD_ID := RE450
+  SUPPORTED_DEVICES += re450
+endef
+TARGET_DEVICES += tplink_re450-v1
+
+define Device/tplink_re450-v2
+  $(Device/tplink-safeloader)
+  SOC := qca9563
+  IMAGE_SIZE := 6016k
+  DEVICE_MODEL := RE450
+  DEVICE_VARIANT := v2
+  DEVICE_PACKAGES := kmod-ath10k-ct-smallbuffers ath10k-firmware-qca988x-ct
+  TPLINK_BOARD_ID := RE450-V2
+  LOADER_TYPE := elf
+  DEFAULT := n
+endef
+TARGET_DEVICES += tplink_re450-v2
+
 define Device/tplink_tl-mr10u
   $(Device/tplink-4mlzma)
   SOC := ar9331
@@ -234,6 +273,7 @@ define Device/tplink_tl-wpa8630p-v2
     so the JFFS2 settings partition MUST be reformatted to avoid data corruption. \
     Backup your settings before upgrading, then during sysupgrade, \
     de-select "Keep settings" and select "Force" to continue (equivilant to "sysupgrade -n -F").
+  DEFAULT := n
 endef
 
 define Device/tplink_tl-wpa8630p-v2-int
@@ -480,6 +520,7 @@ define Device/tplink_tl-wr941-v2
   $(Device/tplink-4m)
   SOC := ar9132
   DEVICE_MODEL := TL-WR941ND
+  DEVICE_PACKAGES := kmod-dsa-mv88e6060
   DEVICE_VARIANT := v2/v3
   DEVICE_ALT0_VENDOR := TP-Link
   DEVICE_ALT0_MODEL := TL-WR941N
@@ -502,6 +543,16 @@ define Device/tplink_tl-wr941-v4
   SUPPORTED_DEVICES += tl-wr741nd
 endef
 TARGET_DEVICES += tplink_tl-wr941-v4
+
+define Device/tplink_tl-wr941nd-v5
+  $(Device/tplink-4mlzma)
+  SOC := ar9341
+  DEVICE_MODEL := TL-WR941ND
+  DEVICE_VARIANT := v5
+  TPLINK_HWID := 0x09410005
+  SUPPORTED_DEVICES += tl-wr941nd-v5
+endef
+TARGET_DEVICES += tplink_tl-wr941nd-v5
 
 define Device/tplink_tl-wr941nd-v6
   $(Device/tplink-4mlzma)

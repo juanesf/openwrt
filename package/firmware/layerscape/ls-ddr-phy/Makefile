@@ -6,13 +6,13 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=ls-ddr-phy
-PKG_VERSION:=21.08
-PKG_RELEASE:=$(AUTORELEASE)
+PKG_VERSION:=6.12.20.2.0.0
+PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/NXP/ddr-phy-binary.git
-PKG_SOURCE_VERSION:=LSDK-21.08
-PKG_MIRROR_HASH:=6ad8bba23a70ed50716c56093a4ee7eef3153f8c3b7446c4520412c83799bb08
+PKG_SOURCE_VERSION:=lf-6.12.20-2.0.0
+PKG_MIRROR_HASH:=162616b23041e345a9a12080005ee1c24c9903d6809c60a022588a1c7f5b1577
 PKG_BUILD_DEPENDS:=tfa-layerscape/host
 
 PKG_LICENSE:=EULA
@@ -27,6 +27,8 @@ define Package/layerscape-ddr-phy
   CATEGORY:=Firmware
   TITLE:=NXP Layerscape DDR PHY firmware
   DEPENDS:=@TARGET_layerscape
+  DEFAULT:=y if TARGET_layerscape_armv8_64b
+  HIDDEN:=1
 endef
 
 define Build/Compile

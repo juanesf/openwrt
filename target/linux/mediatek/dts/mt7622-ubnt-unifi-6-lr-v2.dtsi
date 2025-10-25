@@ -13,14 +13,38 @@
 
 		led_white: dome_white {
 			label = "white:dome";
-			linux,default-trigger = "default-on";
-			gpios = <&pio 0x43 GPIO_ACTIVE_HIGH>;
+			gpios = <&pio 0x43 GPIO_ACTIVE_LOW>;
 		};
 
 		led_blue: dome_blue {
 			label = "blue:dome";
-			default-state = "off";
 			gpios = <&pio 0x44 GPIO_ACTIVE_HIGH>;
 		};
 	};
 };
+
+&eth {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&eth_pins>;
+
+	gmac0: mac@0 {
+		compatible = "mediatek,eth-mac";
+		reg = <0>;
+
+		phy-mode = "2500base-x";
+		phy-handle = <&phy0>;
+		phy-connection-type = "2500base-x";
+	};
+
+	mdio: mdio-bus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		phy0: ethernet-phy@8 {
+			compatible = "ethernet-phy-ieee802.3-c45";
+			reg = <0x8>;
+		};
+	};
+};
+
