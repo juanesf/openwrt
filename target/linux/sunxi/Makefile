@@ -11,6 +11,7 @@ FEATURES:=ext4 display ramdisk rootfs-part rtc squashfs usb usbgadget
 SUBTARGETS:=cortexa8 cortexa7 cortexa53 arm926ejs
 
 KERNEL_PATCHVER:=6.12
+KERNEL_TESTING_PATCHVER:=6.17
 
 KERNELNAME:=zImage dtbs
 
@@ -22,6 +23,7 @@ KERNELNAME:=zImage dtbs
 # H3: quad Cortex-A7
 # R40: quad Cortex-A7
 # A64/H5/H6/H616: quad Cortex-A53
+# A523/A527/T527: octa Cortex-A55
 
 include $(INCLUDE_DIR)/target.mk
 
