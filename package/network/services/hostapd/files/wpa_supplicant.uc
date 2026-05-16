@@ -1,4 +1,5 @@
 let libubus = require("ubus");
+import * as uloop from "uloop";
 import { open, readfile } from "fs";
 import { wdev_create, wdev_set_mesh_params, wdev_remove, is_equal, wdev_set_up, vlist_new, phy_open } from "common";
 
@@ -16,7 +17,9 @@ libubus.guard(ex_handler);
 wpas.data.mld = {};
 wpas.data.config = {};
 wpas.data.iface_phy = {};
+wpas.data.iface_ubus = {};
 wpas.data.macaddr_list = {};
+wpas.data.dpp_hooks = {};
 
 function iface_stop(iface)
 {
@@ -177,6 +180,8 @@ function mld_add(data, phy_list)
 	}
 
 	let wdev_config = { ...data.config, radio_mask: data.radio_mask };
+	if (!wdev_config.macaddr)
+		wdev_config.macaddr = phydev.macaddr_next();
 	let ret = phydev.wdev_add(name, wdev_config);
 	if (ret)
 		wpas.printf(`Failed to create device ${name}: ${ret}`);
@@ -384,6 +389,148 @@ function iface_status_fill_radio(mld, radio, msg, status)
 		iface_status_fill_radio_link(mld, radio, msg, status);
 }
 
+function dpp_find_iface(ifname)
+{
+	return wpas.interfaces[ifname];
+}
+
+function dpp_channel_handle_request(channel, req)
+{
+	let data = req.args ?? {};
+	let iface;
+
+	switch (req.type) {
+	case "start":
+		if (!data.ifname)
+			return libubus.STATUS_INVALID_ARGUMENT;
+		if (!wpas.interfaces[data.ifname])
+			return libubus.STATUS_NOT_FOUND;
+		let old_hook = wpas.data.dpp_hooks[data.ifname];
+		if (old_hook && old_hook.channel != channel)
+			old_hook.channel.disconnect();
+		wpas.data.dpp_hooks[data.ifname] = {
+			channel: channel,
+			timeout_count: 0,
+		};
+		return 0;
+
+	case "stop":
+		if (!data.ifname)
+			return libubus.STATUS_INVALID_ARGUMENT;
+		let hook = wpas.data.dpp_hooks[data.ifname];
+		if (hook && hook.channel == channel)
+			delete wpas.data.dpp_hooks[data.ifname];
+		return 0;
+
+	case "tx_action":
+		iface = dpp_find_iface(data.ifname);
+		if (!iface)
+			return libubus.STATUS_NOT_FOUND;
+		if (!iface.dpp_send_action(data.dst, data.freq ?? 0, data.frame))
+			return libubus.STATUS_UNKNOWN_ERROR;
+		return 0;
+
+	case "tx_gas_req":
+		iface = dpp_find_iface(data.ifname);
+		if (!iface)
+			return libubus.STATUS_NOT_FOUND;
+		if (!iface.dpp_send_gas_req(data.dst, data.freq ?? 0, data.data, data.dialog_token ?? 0))
+			return libubus.STATUS_UNKNOWN_ERROR;
+		return 0;
+
+	case "dpp_bootstrap_gen":
+		iface = dpp_find_iface(data.ifname);
+		if (!iface)
+			return libubus.STATUS_NOT_FOUND;
+		let gen_cmd = "DPP_BOOTSTRAP_GEN type=qrcode";
+		if (data.key)
+			gen_cmd += " key=" + data.key;
+		if (data.curve)
+			gen_cmd += " curve=" + data.curve;
+		let gen_result = iface.ctrl(gen_cmd);
+		if (!gen_result || gen_result == "FAIL")
+			return libubus.STATUS_UNKNOWN_ERROR;
+		return { id: +gen_result };
+
+	case "dpp_bootstrap_remove":
+		iface = dpp_find_iface(data.ifname);
+		if (!iface)
+			return libubus.STATUS_NOT_FOUND;
+		let remove_result = iface.ctrl("DPP_BOOTSTRAP_REMOVE " + (data.id ?? "*"));
+		return (remove_result == "OK") ? 0 : libubus.STATUS_UNKNOWN_ERROR;
+
+	case "dpp_chirp":
+		iface = dpp_find_iface(data.ifname);
+		if (!iface)
+			return libubus.STATUS_NOT_FOUND;
+		let chirp_cmd = "DPP_CHIRP own=" + data.id;
+		if (data.iter)
+			chirp_cmd += " iter=" + data.iter;
+		if (data.scan_interval)
+			chirp_cmd += " listen=" + data.scan_interval;
+		let chirp_result = iface.ctrl(chirp_cmd);
+		return (chirp_result == "OK") ? 0 : libubus.STATUS_UNKNOWN_ERROR;
+
+	case "dpp_stop_chirp":
+		iface = dpp_find_iface(data.ifname);
+		if (!iface)
+			return libubus.STATUS_NOT_FOUND;
+		iface.ctrl("DPP_STOP_CHIRP");
+		return 0;
+
+	case "wps_set_m7":
+		iface = dpp_find_iface(data.ifname);
+		if (!iface)
+			return libubus.STATUS_NOT_FOUND;
+		if (!iface.wps_set_m7(data.data))
+			return libubus.STATUS_UNKNOWN_ERROR;
+		return 0;
+
+	default:
+		return libubus.STATUS_METHOD_NOT_FOUND;
+	}
+}
+
+function dpp_channel_handle_disconnect(channel)
+{
+	for (let ifname, hook in wpas.data.dpp_hooks) {
+		if (hook.channel == channel)
+			delete wpas.data.dpp_hooks[ifname];
+	}
+}
+
+function dpp_rx_via_channel(ifname, method, data, no_reply)
+{
+	let hook = wpas.data.dpp_hooks[ifname];
+	if (!hook)
+		return null;
+
+	let req = {
+		method: method,
+		data: data,
+	};
+
+	if (no_reply) {
+		req.return = "ignore";
+		hook.channel.request(req);
+		return null;
+	}
+
+	let response = hook.channel.request(req);
+	if (hook.channel.error(true) == libubus.STATUS_TIMEOUT) {
+		hook.timeout_count++;
+		if (hook.timeout_count >= 3) {
+			wpas.printf(`DPP channel timeout for ${ifname}, disconnecting`);
+			hook.channel.disconnect();
+			delete wpas.data.dpp_hooks[ifname];
+		}
+		return null;
+	}
+
+	hook.timeout_count = 0;
+	return response;
+}
+
 let main_obj = {
 	phy_set_state: {
 		args: {
@@ -548,7 +695,7 @@ let main_obj = {
 				set_config(phy, req.args.phy, req.args.radio, req.args.num_global_macaddr, req.args.macaddr_base, req.args.config);
 
 			if (!req.args.defer)
-				start_pending(phy);
+				uloop.timer(100, () => start_pending(phy));
 
 			return {
 				pid: wpas.getpid()
@@ -613,6 +760,74 @@ let main_obj = {
 			}
 
 			return ret;
+		}
+	},
+	status: {
+		args: {},
+		call: function(req) {
+			let interfaces = {};
+
+			for (let phy_name, phy in wpas.data.config) {
+				if (!phy || !phy.data)
+					continue;
+
+				for (let ifname, iface_data in phy.data) {
+					let config = iface_data.config;
+
+					let entry = {
+						wiphy: phy.name,
+						macaddr: config.macaddr,
+						running: !!iface_data.running,
+						pending: !iface_data.running,
+					};
+
+					if (phy.radio != null && phy.radio >= 0)
+						entry.radio = phy.radio;
+
+					interfaces[config.iface] = entry;
+				}
+			}
+
+			for (let name, mld in wpas.data.mld) {
+				let entry = {
+					wiphy: mld.phy,
+					links: {},
+				};
+
+				if (mld.config && mld.config.macaddr)
+					entry.macaddr = mld.config.macaddr;
+
+				let mask = mld.radio_mask;
+				for (let radio = 0; mask; radio++, mask >>= 1) {
+					if (!(mask & 1))
+						continue;
+
+					entry.links[radio] = {
+						radio,
+						running: !!(mld.radio_mask_up & (1 << radio)),
+						pending: !!(mld.radio_mask_present & (1 << radio)) &&
+						         !(mld.radio_mask_up & (1 << radio)),
+					};
+				}
+
+				interfaces[mld.name] = entry;
+			}
+
+			return { interfaces };
+		}
+	},
+	dpp_channel: {
+		args: {},
+		call: function(req) {
+			let channel;
+			let on_request = (chan_req) => dpp_channel_handle_request(channel, chan_req);
+			let on_disconnect = () => dpp_channel_handle_disconnect(channel);
+
+			channel = req.new_channel(on_request, on_disconnect, 1);
+			if (!channel)
+				return libubus.STATUS_UNKNOWN_ERROR;
+
+			return 0;
 		}
 	},
 };
@@ -720,6 +935,88 @@ function iface_channel_switch(ifname, iface, info)
 	ubus.call("hostapd", "apsta_state", msg);
 }
 
+function iface_ubus_remove(ifname)
+{
+	let obj = wpas.data.iface_ubus[ifname];
+	if (!obj)
+		return;
+
+	obj.remove();
+	delete wpas.data.iface_ubus[ifname];
+}
+
+function iface_ubus_notify(ifname, event)
+{
+	event = { ifname, event };
+
+	dpp_rx_via_channel(ifname, "ctrl-event", event, true);
+	let obj = wpas.data.iface_ubus[ifname];
+	if (!obj)
+		return;
+
+	obj.notify('ctrl-event', event, null, null, null, -1);
+}
+
+function iface_ubus_add(ifname)
+{
+	let ubus = wpas.data.ubus;
+
+	iface_ubus_remove(ifname);
+
+	let obj = ubus.publish(`wpa_supplicant.${ifname}`, {
+		reload: {
+			args: {},
+			call: (req) => {
+				let iface = wpas.interfaces[ifname];
+				if (!iface)
+					return libubus.STATUS_NOT_FOUND;
+
+				iface.ctrl("RECONFIGURE");
+				return 0;
+			},
+		},
+		wps_start: {
+			args: {
+				multi_ap: true
+			},
+			call: (req) => {
+				let iface = wpas.interfaces[ifname];
+				if (!iface)
+					return libubus.STATUS_NOT_FOUND;
+
+				iface.ctrl(`WPS_PBC multi_ap=${+req.args.multi_ap}`);
+				return 0;
+			},
+		},
+		wps_cancel: {
+			args: {},
+			call: (req) => {
+				let iface = wpas.interfaces[ifname];
+				if (!iface)
+					return libubus.STATUS_NOT_FOUND;
+
+				iface.ctrl("WPS_CANCEL");
+				return 0;
+			},
+		},
+		control: {
+			args: {
+				command: ""
+			},
+			call: (req) => {
+				let iface = wpas.interfaces[ifname];
+				if (!iface)
+					return libubus.STATUS_NOT_FOUND;
+
+				return {
+					result: iface.ctrl(req.args.command)
+				};
+			},
+		},
+	});
+	wpas.data.iface_ubus[ifname] = obj;
+}
+
 return {
 	shutdown: function() {
 		for (let phy in wpas.data.config)
@@ -734,10 +1031,16 @@ return {
 		return mld_bss_allowed(mld, bss);
 	},
 	iface_add: function(name, obj) {
+		iface_ubus_add(name);
 		iface_event("add", name);
 	},
 	iface_remove: function(name, obj) {
 		iface_event("remove", name);
+		iface_ubus_remove(name);
+		delete wpas.data.dpp_hooks[name];
+	},
+	ctrl_event: function(name, iface, ev) {
+		iface_ubus_notify(name, ev);
 	},
 	state: function(ifname, iface, state) {
 		let event_data = iface.status();
@@ -773,5 +1076,33 @@ return {
 	event: function(ifname, iface, ev, info) {
 		if (ev == "CH_SWITCH_STARTED")
 			iface_channel_switch(ifname, iface, info);
-	}
+	},
+	wps_credentials: function(ifname, iface, cred) {
+		cred.ifname = ifname;
+		ubus.event("wps_credentials", cred);
+	},
+	dpp_rx_action: function(iface, src, frame_type, freq, frame) {
+		let response = dpp_rx_via_channel(iface, "rx_action", {
+			ifname: iface, src, frame_type, freq, frame,
+		});
+		if (response && response.handled)
+			return true;
+		return false;
+	},
+	dpp_rx_gas: function(iface, src, freq, gas_frame) {
+		let response = dpp_rx_via_channel(iface, "rx_gas", {
+			ifname: iface, src, freq, gas_frame,
+		});
+		if (response && response.handled)
+			return true;
+		return false;
+	},
+	wps_m8_rx: function(ifname, iface, data) {
+		let response = dpp_rx_via_channel(ifname, "wps_m8_rx", {
+			ifname, data,
+		});
+		if (response && response.handled)
+			return true;
+		return false;
+	},
 };

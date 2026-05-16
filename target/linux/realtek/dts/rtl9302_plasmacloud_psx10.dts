@@ -35,39 +35,19 @@
 	};
 };
 
-&mdio_bus0 {
-	INTERNAL_PHY(26)
-	INTERNAL_PHY(27)
+&switch0 {
+	ethernet-ports {
+		SWITCH_PORT_SFP(26, 9, 8, 0, 0)
+		SWITCH_PORT_SFP(27, 10, 9, 0, 1)
+	};
 };
 
-&switch0 {
-	ports {
-		port@26 {
-			reg = <26>;
-			label = "lan9";
-			pcs-handle = <&serdes8>;
-			phy-handle = <&phy26>;
-			phy-mode = "1000base-x";
-			sfp = <&sfp0>;
-			led-set = <0>;
-			managed = "in-band-status";
+&port26 {
+	nvmem-cells = <&macaddr_ubootenv_ethaddr 9>;
+	nvmem-cell-names = "mac-address";
+};
 
-			nvmem-cells = <&macaddr_ubootenv_ethaddr 9>;
-			nvmem-cell-names = "mac-address";
-		};
-
-		port@27 {
-			reg = <27>;
-			label = "lan10";
-			pcs-handle = <&serdes9>;
-			phy-handle = <&phy27>;
-			phy-mode = "1000base-x";
-			sfp = <&sfp1>;
-			led-set = <0>;
-			managed = "in-band-status";
-
-			nvmem-cells = <&macaddr_ubootenv_ethaddr 10>;
-			nvmem-cell-names = "mac-address";
-		};
-	};
+&port27 {
+	nvmem-cells = <&macaddr_ubootenv_ethaddr 10>;
+	nvmem-cell-names = "mac-address";
 };

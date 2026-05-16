@@ -6,6 +6,7 @@ RAMFS_COPY_DATA='/etc/fw_env.config /var/lock/fw_printenv.lock'
 
 platform_check_image() {
 	case "$(board_name)" in
+	asus,map-ac1300|\
 	asus,rt-ac42u|\
 	asus,rt-ac58u)
 		local ubidev=$(nand_find_ubi $CI_UBIPART)
@@ -122,6 +123,8 @@ platform_do_upgrade() {
 	luma,wrtq-329acn|\
 	mobipromo,cm520-79f|\
 	netgear,lbr20|\
+	netgear,rbr20|\
+	netgear,rbs20|\
 	netgear,wac510|\
 	p2w,r619ac-64m|\
 	p2w,r619ac-128m|\
@@ -140,6 +143,7 @@ platform_do_upgrade() {
 		fi
 		nand_do_upgrade "$1"
 		;;
+	asus,map-ac1300|\
 	asus,map-ac2200|\
 	asus,rt-ac42u|\
 	asus,rt-ac58u)
@@ -163,8 +167,19 @@ platform_do_upgrade() {
 		CI_ROOTPART="rootfs"
 		emmc_do_upgrade "$1"
 		;;
+	huawei,ap4050dn)
+		# Store beginning address of the "uboot" partition
+		# as KernelA address and KernelB address, each to ResultA & ResultB
+		# This is the address from which the bootloader will try to load the u-boot that we use as loader.
+		HUAWEI_AP4050DN_LOADADDR="\x00\x00\x70\x00\x00\x00\x70\x00"
+		echo -n -e $HUAWEI_AP4050DN_LOADADDR | dd of=$(find_mtd_part ResultA) bs=1 seek=$((0x4264)) conv=notrunc
+		echo -n -e $HUAWEI_AP4050DN_LOADADDR | dd of=$(find_mtd_part ResultA) bs=1 seek=$((0x40264)) conv=notrunc
+		echo -n -e $HUAWEI_AP4050DN_LOADADDR | dd of=$(find_mtd_part ResultB) bs=1 seek=$((0x4264)) conv=notrunc
+		default_do_upgrade "$1"
+		;;
 	linksys,ea6350v3|\
 	linksys,ea8300|\
+	linksys,mr6350|\
 	linksys,mr8300|\
 	linksys,whw01|\
 	linksys,whw03v2)
@@ -173,8 +188,11 @@ platform_do_upgrade() {
 	linksys,whw03)
 		platform_do_upgrade_linksys_emmc "$1"
 		;;
+	meraki,mr20|\
+	meraki,mr70|\
 	meraki,gx20|\
-	meraki,z3)
+	meraki,z3|\
+	meraki,z3c)
 		# DO NOT set CI_KERNPART to part.safe,
 		# that is used for chain-loading an unlocked u-boot
 		# if part.safe is overwritten, then u-boot is lost!

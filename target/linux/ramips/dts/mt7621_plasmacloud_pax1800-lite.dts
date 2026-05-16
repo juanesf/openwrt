@@ -94,8 +94,6 @@
 	num-cs = <2>;
 
 	flash@0 {
-		#address-cells = <1>;
-		#size-cells = <1>;
 		compatible = "jedec,spi-nor";
 		spi-max-frequency = <20000000>;
 		reg = <0>;
@@ -144,8 +142,6 @@
 	};
 
 	flash@1 {
-		#address-cells = <1>;
-		#size-cells = <1>;
 		compatible = "spi-nand";
 		spi-max-frequency = <20000000>;
 		reg = <1>;
@@ -2195,10 +2191,6 @@
 			};
 		};
 	};
-};
-
-&xhci {
-	status = "okay";
 };
 
 &ethernet {

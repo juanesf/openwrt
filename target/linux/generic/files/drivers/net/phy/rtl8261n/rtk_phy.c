@@ -16,7 +16,7 @@
 #define REALTEK_PHY_ID_RTL8264B         0x001CC813
 #define REALTEK_PHY_ID_RTL8264          0x001CCAF2
 
-#define REALTEK_SERDES_GLOBAL_CFG       0x1c
+#define REALTEK_SERDES_GLOBAL_CFG       0xC1
 #define   REALTEK_HSO_INV               BIT(7)
 #define   REALTEK_HSI_INV               BIT(6)
 
@@ -61,6 +61,7 @@ static int rtl826xb_probe(struct phy_device *phydev)
 
     priv->phytype = (phydev->drv->phy_id == REALTEK_PHY_ID_RTL8261N) ? (RTK_PHYLIB_RTL8261N) : (RTK_PHYLIB_RTL8264B);
     priv->isBasePort = (phydev->drv->phy_id == REALTEK_PHY_ID_RTL8261N) ? (1) : (((phydev->mdio.addr % 4) == 0) ? (1) : (0));
+    priv->pnswap_rx = device_property_read_bool(dev, "realtek,pnswap-rx");
     priv->pnswap_tx = device_property_read_bool(dev, "realtek,pnswap-tx");
     phydev->priv = priv;
 
@@ -77,12 +78,10 @@ static int rtkphy_config_init(struct phy_device *phydev)
         case REALTEK_PHY_ID_RTL8264B:
         case REALTEK_PHY_ID_RTL8264:
             phydev_info(phydev, "%s:%u [RTL8261N/RTL8264/RTL826XB] phy_id: 0x%X PHYAD:%d\n", __FUNCTION__, __LINE__, phydev->drv->phy_id, phydev->mdio.addr);
-#ifdef CONFIG_MACH_REALTEK_RTL
-            return 0;
-#endif
 
           #if 1 /* toggle reset */
             phy_modify_mmd_changed(phydev, 30, 0x145, BIT(0)  , 1);
+            mdelay(30);
             phy_modify_mmd_changed(phydev, 30, 0x145, BIT(0)  , 0);
             mdelay(30);
           #endif
@@ -124,6 +123,11 @@ static int rtkphy_config_init(struct phy_device *phydev)
                 printk("[%s,%d] sds link [%s] (0x%X)\n", __FUNCTION__, __LINE__, (readData & BIT(12)) ? "UP" : "DOWN", readData);
             }
           #endif
+
+            if (priv->pnswap_rx)
+                phy_set_bits_mmd(phydev, MDIO_MMD_VEND1,
+                                 REALTEK_SERDES_GLOBAL_CFG,
+                                 REALTEK_HSI_INV);
 
             if (priv->pnswap_tx)
                 phy_set_bits_mmd(phydev, MDIO_MMD_VEND1,
@@ -304,7 +308,7 @@ static struct phy_driver rtk_phy_drivers[] = {
 module_phy_driver(rtk_phy_drivers);
 
 
-static struct mdio_device_id __maybe_unused rtk_phy_tbl[] = {
+static const struct mdio_device_id __maybe_unused rtk_phy_tbl[] = {
     { PHY_ID_MATCH_EXACT(REALTEK_PHY_ID_RTL8261N) },
     { PHY_ID_MATCH_EXACT(REALTEK_PHY_ID_RTL8264B) },
     { PHY_ID_MATCH_EXACT(REALTEK_PHY_ID_RTL8264) },
